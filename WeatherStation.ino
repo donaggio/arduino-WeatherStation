@@ -4,6 +4,8 @@
  * - Adafruit Unified Sensor Library: https://github.com/adafruit/Adafruit_Sensor
  * - DHT Sensor Library: https://github.com/adafruit/DHT-sensor-library
  * - BMP085 Unified Sensor Library: https://github.com/adafruit/Adafruit_BMP085_Unified
+ * 
+ * Connection D0 -- RST is required to wake-up from deep sleep mode
  */
 
 // External libraries
@@ -23,9 +25,11 @@
 // Global objects
 DHT_Unified dht(DHTPIN, DHTTYPE, 6, 10011, 20011);
 Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(30180);
+ESP8266WiFiMulti WiFiMulti;
+HTTPClient http;
 
 // Global variables
-uint32_t delayMS = (60000 * 5);
+uint32_t deepSleepS = (5 * 60);
 float temperature;
 float humidity;
 float pressure;
@@ -35,9 +39,17 @@ String baseUrl = "/api/sensors/v1/addSensorsData";
 
 void setup() {
   sensor_t sensor;
+  sensors_event_t event;
+  uint16_t elapsedWiFiConnTimeMS;
+  uint16_t maxWiFiConnTimeMS = 30000;
+  String url;
+  int httpCode;
 
   // Initialize serial interface output
   Serial.begin(9600);
+  
+  // Connect D0 to RST to wake up from deep sleep mode
+  pinMode(D0, WAKEUP_PULLUP);
 
   Serial.println();
   Serial.println("Connected Sensors details");
@@ -86,21 +98,8 @@ void setup() {
   Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" hPa");  
   Serial.println("------------------------------------");
   Serial.println();
-}
 
-void loop() {
-  ESP8266WiFiMulti WiFiMulti;
-  HTTPClient http;
-  
-  sensors_event_t event;
-  uint16_t elapsedWiFiConnTimeMS;
-  uint16_t maxWiFiConnTimeMS = 30000;
-  String url;
-  int httpCode;
-  
-  // Delay between measurements
-  delay(delayMS);
-
+  // Get sensors data
   Serial.println("------------------------------------");
   // Get temperature event and print its value
   dht.temperature().getEvent(&event);
@@ -171,4 +170,12 @@ void loop() {
     }
     http.end();
   }
+
+  // Enter deep sleep
+  Serial.println();
+  Serial.println("Entering deep sleep mode!");
+  ESP.deepSleep(deepSleepS * 1000000);
+}
+
+void loop() {
 }
